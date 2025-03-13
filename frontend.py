@@ -8,7 +8,7 @@ from datetime import datetime
 st.set_page_config(page_title="Charlotte Apartment Finder", page_icon="🏠", layout="wide")
 
 # Set Backend API URL
-BACKEND_URL = "http://127.0.0.1:5000/search"
+BACKEND_URL = "https://apartment-finder-backend.onrender.com/search"
 
 # Function to Fetch Data
 @st.cache_data
