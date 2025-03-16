@@ -1,10 +1,21 @@
 from flask import Flask, request, jsonify
 import requests
+import pandas as pd
 
 app = Flask(__name__)
 
 # APIFY API URL (Replace with your actual API URL)
 APIFY_API_URL = "https://api.apify.com/v2/datasets/jTMxakh4vuvXiMo8J/items"
+
+# Load property neighborhood corrections from CSV
+CSV_FILE_PATH = "Property_Locations.csv"
+
+try:
+    neighborhood_mapping = pd.read_csv(CSV_FILE_PATH)
+    neighborhood_dict = dict(zip(neighborhood_mapping["Property Name"], neighborhood_mapping["Property Location"]))
+except Exception as e:
+    print(f"Error loading CSV: {e}")
+    neighborhood_dict = {}
 
 def fetch_data():
     response = requests.get(APIFY_API_URL)
@@ -20,7 +31,11 @@ def search():
     for item in data:
         property_name = item.get("propertyName", "N/A")
         address = item.get("location", {}).get("fullAddress", "N/A")
-        neighborhood = item.get("location", {}).get("neighborhood", "N/A")
+        
+        # Replace incorrect neighborhood with correct one from CSV
+        json_neighborhood = item.get("location", {}).get("neighborhood", "N/A")
+        corrected_neighborhood = neighborhood_dict.get(property_name, json_neighborhood)
+
         walk_score = item.get("scores", {}).get("walkScore", "N/A")
         transit_score = item.get("scores", {}).get("transitScore", "N/A")
         description = item.get("description", "No description available")
@@ -63,7 +78,7 @@ def search():
                 results.append({
                     "Property Name": property_name,
                     "Address": address,
-                    "Neighborhood": neighborhood,
+                    "Neighborhood": corrected_neighborhood,  # 🏡 Updated neighborhood
                     "Rent": unit_rent,
                     "Deposit": deposit,
                     "Floorplan": floorplan_name,
