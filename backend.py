@@ -7,9 +7,21 @@ app = Flask(__name__)
 # APIFY API URL (Replace with your actual API URL)
 APIFY_API_URL = "https://api.apify.com/v2/datasets/jTMxakh4vuvXiMo8J/items"
 
-# Load property locations CSV for correct neighborhood mapping
-property_locations = pd.read_csv("Property_Locations.csv")
-property_locations_dict = dict(zip(property_locations["propertyName"], property_locations["correct_neighborhood"]))
+# Load property locations CSV for neighborhood corrections
+try:
+    property_locations = pd.read_csv("Property_Locations.csv")
+    # Normalize column names (strip spaces & lowercase)
+    property_locations.columns = property_locations.columns.str.strip().str.lower()
+
+    # Ensure expected columns exist
+    if "property name" in property_locations.columns and "property location" in property_locations.columns:
+        property_locations_dict = dict(zip(property_locations["property name"], property_locations["property location"]))
+    else:
+        print("⚠️ CSV does not contain expected columns: 'Property Name' & 'Property Location'")
+        property_locations_dict = {}
+except Exception as e:
+    print(f"⚠️ Error loading Property_Locations.csv: {e}")
+    property_locations_dict = {}
 
 def fetch_data():
     response = requests.get(APIFY_API_URL)
@@ -25,20 +37,19 @@ def search():
     for item in data:
         property_name = item.get("propertyName", "N/A")
         address = item.get("location", {}).get("fullAddress", "N/A")
-        
-        # Use correct neighborhood if available in CSV, else fallback to JSON value
+
+        # Replace neighborhood with correct one from CSV if available
         neighborhood = property_locations_dict.get(property_name, item.get("location", {}).get("neighborhood", "N/A"))
-        
-        # Extract coordinates
-        coordinates = item.get("coordinates", {})
-        latitude = coordinates.get("latitude", None)
-        longitude = coordinates.get("longitude", None)
 
         walk_score = item.get("scores", {}).get("walkScore", "N/A")
         transit_score = item.get("scores", {}).get("transitScore", "N/A")
         description = item.get("description", "No description available")
         url = item.get("url", "#")
         photos = item.get("photos", [])
+
+        # Coordinates for map feature
+        latitude = item.get("coordinates", {}).get("latitude", None)
+        longitude = item.get("coordinates", {}).get("longitude", None)
 
         # Rent Range
         rent_data = item.get("rent", {})
@@ -77,8 +88,6 @@ def search():
                     "Property Name": property_name,
                     "Address": address,
                     "Neighborhood": neighborhood,
-                    "Latitude": latitude,
-                    "Longitude": longitude,
                     "Rent": unit_rent,
                     "Deposit": deposit,
                     "Floorplan": floorplan_name,
@@ -95,7 +104,9 @@ def search():
                     "Nearby Points of Interest": transit_poi,
                     "Description": description,
                     "URL": url,
-                    "Photos": photos
+                    "Photos": photos,
+                    "Latitude": latitude,
+                    "Longitude": longitude
                 })
 
     return jsonify(results)
