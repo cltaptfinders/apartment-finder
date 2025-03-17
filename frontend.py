@@ -158,6 +158,7 @@ if page == "Apartment Finder":
         if not filtered_df.empty:
             for _, row in filtered_df.iterrows():
                 application_fee = row["Application Fee"] if "Application Fee" in row else "N/A"
+                commission = row["Commission"] if "Commission" in row else "Not Available"
                 st.markdown(f"""
                 <div class='apartment-card'>
                     <h2 style="color: {PRIMARY_COLOR};">🏢 {row["Property Name"]}</h2>
@@ -167,7 +168,7 @@ if page == "Apartment Finder":
                     <p>🛏️ <b>Bedrooms:</b> {row["Bedrooms"]} | 🛁 <b>Bathrooms:</b> {row["Bathrooms"]}</p>
                     <p>🏠 <b>Floorplan:</b> {row["Floorplan"]}</p>
                     <p>🔢 <b>Unit Number:</b> {row["Unit Number"]}</p>
-                    <p>💰 <b>Commission:</b> {row["Commission"]}</p>
+                    <p>💰 <b>Commission:</b> {commission}</p>
                 </div>
                 """, unsafe_allow_html=True)
         else:
