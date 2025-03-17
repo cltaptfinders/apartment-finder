@@ -60,109 +60,101 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown(f"""
-    <div style='display: flex; align-items: center; justify-content: center;'>
-        <img src="{LOGO_URL}" alt="Charlotte Apartment Finders Logo" style='max-width: 180px; margin-right: 15px;'>
-        <h1 style="color: {PRIMARY_COLOR};">Charlotte Apartment Finder</h1>
-    </div>
-""", unsafe_allow_html=True)
+# --- 🌍 Navigation Tabs ---
+tab1, tab2 = st.tabs(["🏡 Apartment Finder", "🗺️ Property Map"])
 
-st.markdown("### Find Your Dream Apartment in Charlotte ✨")
+# ====== 🏡 APARTMENT FINDER TAB ======
+with tab1:
+    st.markdown(f"""
+        <div style='display: flex; align-items: center; justify-content: center;'>
+            <img src="{LOGO_URL}" alt="Charlotte Apartment Finders Logo" style='max-width: 180px; margin-right: 15px;'>
+            <h1 style="color: {PRIMARY_COLOR};">Charlotte Apartment Finder</h1>
+        </div>
+    """, unsafe_allow_html=True)
 
-# 📅 Show Last Update Time
-if os.path.exists(JSON_FILE):
-    last_updated = time.ctime(os.path.getmtime(JSON_FILE))
-    st.sidebar.markdown(f"📅 **Last updated:** {last_updated}")
+    st.markdown("### Find Your Dream Apartment in Charlotte ✨")
 
-# --- 🔍 Sidebar Filters ---
-st.sidebar.header("🔍 Search Filters")
-apartment_name = st.sidebar.text_input("Apartment Name (Optional)", "")
-move_date = st.sidebar.date_input("Move-In Date (Optional)", value=None)
-max_price = st.sidebar.number_input("Max Rent ($) (Optional)", value=0, step=100)
-neighborhood = st.sidebar.text_input("Neighborhood (Optional)", "")
-bedrooms = st.sidebar.text_input("Bedrooms (Optional, e.g., Studio, 1 Bed, 2 Beds)", "")
-min_sqft = st.sidebar.number_input("Minimum Square Footage (Optional)", value=0, step=50)
+    # 📅 Show Last Update Time
+    if os.path.exists(JSON_FILE):
+        last_updated = time.ctime(os.path.getmtime(JSON_FILE))
+        st.sidebar.markdown(f"📅 **Last updated:** {last_updated}")
 
-# --- 🛠️ Helper Functions ---
-def parse_availability(value):
-    """Convert 'now' and 'soon' to today's date, otherwise parse normally."""
-    value = str(value).strip()
-    today = datetime.today().date()
-    if value.lower() in ["now", "soon"]:
-        return today  
-    try:
-        return parser.parse(value, fuzzy=True).date()
-    except:
-        return None  
+    # --- 🔍 Sidebar Filters ---
+    st.sidebar.header("🔍 Search Filters")
+    apartment_name = st.sidebar.text_input("Apartment Name (Optional)", "")
+    move_date = st.sidebar.date_input("Move-In Date (Optional)", value=None)
+    max_price = st.sidebar.number_input("Max Rent ($) (Optional)", value=0, step=100)
+    neighborhood = st.sidebar.text_input("Neighborhood (Optional)", "")
+    bedrooms = st.sidebar.text_input("Bedrooms (Optional, e.g., Studio, 1 Bed, 2 Beds)", "")
+    min_sqft = st.sidebar.number_input("Minimum Square Footage (Optional)", value=0, step=50)
 
-def format_fees(fees_list):
-    """Formats parking & pet fees into readable text"""
-    if not isinstance(fees_list, list) or not fees_list:
-        return "Not specified"
-    extracted_fees = []
-    for category in fees_list:
-        if isinstance(category, dict) and "fees" in category:
-            for fee in category["fees"]:
-                key = fee.get("key", "").strip()
-                value = fee.get("value", "").strip()
-                if key and value and value != "--":
-                    extracted_fees.append(f"{key}: {value}")
-    return ", ".join(extracted_fees) if extracted_fees else "Not specified"
+    # 🏡 Filter & Display Results
+    if st.sidebar.button("🔎 Search"):
+        filtered_df = df.copy()
 
-# 🏡 Filter & Display Results
-if st.sidebar.button("🔎 Search"):
-    filtered_df = df.copy()
+        # Convert rent column safely
+        filtered_df["Rent"] = filtered_df["Rent"].astype(str).str.replace("[$,]", "", regex=True)
+        filtered_df["Rent"] = pd.to_numeric(filtered_df["Rent"], errors="coerce").fillna(0).astype(int)
 
-    # Convert rent column safely
-    filtered_df["Rent"] = filtered_df["Rent"].astype(str).str.replace("[$,]", "", regex=True)
-    filtered_df["Rent"] = pd.to_numeric(filtered_df["Rent"], errors="coerce").fillna(0).astype(int)
+        # Apply filters
+        if move_date:
+            filtered_df = filtered_df[(filtered_df["Availability"].notna()) & (filtered_df["Availability"] <= str(move_date))]
+        if apartment_name:
+            filtered_df = filtered_df[filtered_df["Property Name"].str.contains(apartment_name, case=False, na=False)]
+        if max_price > 0:
+            filtered_df = filtered_df[filtered_df["Rent"] <= max_price]
+        if neighborhood:
+            filtered_df = filtered_df[filtered_df["Neighborhood"].str.contains(neighborhood, case=False, na=False)]
+        if bedrooms:
+            filtered_df = filtered_df[filtered_df["Bedrooms"].str.contains(bedrooms, case=False, na=False)]
+        if min_sqft > 0:
+            filtered_df = filtered_df[filtered_df["Square Footage"] >= min_sqft]
 
-    # Convert other data
-    filtered_df["Square Footage"] = pd.to_numeric(filtered_df["Square Footage"], errors="coerce")
-    filtered_df["Availability"] = filtered_df["Availability"].astype(str).str.strip()
-    filtered_df["Availability Date"] = filtered_df["Availability"].apply(parse_availability)
-    filtered_df["Availability Date"] = pd.to_datetime(filtered_df["Availability Date"], errors="coerce").dt.date
+        # Drop duplicates
+        filtered_df = filtered_df.drop_duplicates(subset=["Property Name", "Unit Number", "Rent", "Availability"], keep="first")
 
-    # Format Fees
-    filtered_df["Parking Fees"] = filtered_df["Parking Fees"].apply(lambda x: format_fees(eval(x)) if isinstance(x, str) else format_fees(x))
-    filtered_df["Pet Fees"] = filtered_df["Pet Fees"].apply(lambda x: format_fees(eval(x)) if isinstance(x, str) else format_fees(x))
-    filtered_df["Application Fee"] = filtered_df.get("Application Fee", "N/A")
+        # Display Results
+        if not filtered_df.empty:
+            for _, row in filtered_df.iterrows():
+                st.markdown(f"""
+                <div class='apartment-card'>
+                    <h2 style="color: {PRIMARY_COLOR};">🏢 {row["Property Name"]}</h2>
+                    <p>📍 <b>Address:</b> {row["Address"]} - {row["Neighborhood"]}</p>
+                    <p class='rent-price'>💰 Rent: ${row["Rent"]:,.0f}</p>
+                    <p>📅 <b>Availability:</b> {row["Availability"]}</p>
+                    <a href="{row["URL"]}" target="_blank" style="display:inline-block; padding:8px 12px; background:{PRIMARY_COLOR}; color:white; border-radius:5px; text-decoration:none;">🔗 View Listing</a>
+                </div>
+                """, unsafe_allow_html=True)
+                st.divider()
+        else:
+            st.warning("⚠️ No apartments found. Try adjusting your search criteria.")
 
-    # Apply filters
-    if move_date:
-        filtered_df = filtered_df[(filtered_df["Availability Date"].notna()) & (filtered_df["Availability Date"] <= move_date)]
-    if apartment_name:
-        filtered_df = filtered_df[filtered_df["Property Name"].str.contains(apartment_name, case=False, na=False)]
-    if max_price > 0:
-        filtered_df = filtered_df[filtered_df["Rent"] <= max_price]
-    if neighborhood:
-        filtered_df = filtered_df[filtered_df["Neighborhood"].str.contains(neighborhood, case=False, na=False)]
-    if bedrooms:
-        filtered_df = filtered_df[filtered_df["Bedrooms"].str.contains(bedrooms, case=False, na=False)]
-    if min_sqft > 0:
-        filtered_df = filtered_df[filtered_df["Square Footage"] >= min_sqft]
+# ====== 🗺️ PROPERTY MAP TAB ======
+with tab2:
+    st.markdown("## 📍 Properties Map")
+    st.write("Explore all available properties in Charlotte on an interactive map.")
 
-    # Drop duplicates
-    filtered_df = filtered_df.drop_duplicates(subset=["Property Name", "Unit Number", "Rent", "Availability"], keep="first")
+    # 🗺️ Ensure lat/lon columns exist
+    if "Latitude" not in df.columns or "Longitude" not in df.columns:
+        df["Latitude"] = df["coordinates"].apply(lambda x: x.get("latitude", None) if isinstance(x, dict) else None)
+        df["Longitude"] = df["coordinates"].apply(lambda x: x.get("longitude", None) if isinstance(x, dict) else None)
 
-    # Display Results
-    if not filtered_df.empty:
-        for _, row in filtered_df.iterrows():
-            application_fee = row["Application Fee"] if "Application Fee" in row else "N/A"
-            st.markdown(f"""
-            <div class='apartment-card'>
-                <h2 style="color: {PRIMARY_COLOR};">🏢 {row["Property Name"]}</h2>
-                <p>📍 <b>Address:</b> {row["Address"]} - {row["Neighborhood"]}</p>
-                <p class='rent-price'>💰 Rent: ${row["Rent"]:,.0f}</p>
-                <p>📅 <b>Availability:</b> {row["Availability"]}</p>
-                <p>🛏️ <b>Bedrooms:</b> {row["Bedrooms"]} | 🛁 <b>Bathrooms:</b> {row["Bathrooms"]}</p>
-                <p>📏 <b>Square Footage:</b> {row["Square Footage"]} sqft</p>
-                <p>🚗 <b>Parking Fees:</b> {row["Parking Fees"]}</p>
-                <p>🐶 <b>Pet Fees:</b> {row["Pet Fees"]}</p>
-                <p>📝 <b>Application Fee:</b> {application_fee}</p>
-                <a href="{row["URL"]}" target="_blank" style="display:inline-block; padding:8px 12px; background:{PRIMARY_COLOR}; color:white; border-radius:5px; text-decoration:none;">🔗 View Listing</a>
-            </div>
-            """, unsafe_allow_html=True)
-            st.divider()
+    # 🗺️ Drop any rows missing coordinates
+    df_map = df.dropna(subset=["Latitude", "Longitude"])
+
+    if df_map.empty:
+        st.warning("⚠️ No properties with valid coordinates found.")
     else:
-        st.warning("⚠️ No apartments found. Try adjusting your search criteria.")
+        st.map(df_map)
+
+        # Display selected property details
+        selected_property = st.selectbox("📌 Select a Property:", df_map["Property Name"].unique())
+        selected_data = df_map[df_map["Property Name"] == selected_property].iloc[0]
+
+        st.markdown(f"""
+        ### 🏠 {selected_data["Property Name"]}
+        **📍 Address:** {selected_data["Address"]}  
+        **💰 Rent Range:** ${selected_data["Rent"]}  
+        **🏙️ Neighborhood:** {selected_data["Neighborhood"]}  
+        **🔗 [View Listing]({selected_data["URL"]})**
+        """)

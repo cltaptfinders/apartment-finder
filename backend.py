@@ -7,15 +7,9 @@ app = Flask(__name__)
 # APIFY API URL (Replace with your actual API URL)
 APIFY_API_URL = "https://api.apify.com/v2/datasets/jTMxakh4vuvXiMo8J/items"
 
-# Load property neighborhood corrections from CSV
-CSV_FILE_PATH = "Property_Locations.csv"
-
-try:
-    neighborhood_mapping = pd.read_csv(CSV_FILE_PATH)
-    neighborhood_dict = dict(zip(neighborhood_mapping["Property Name"], neighborhood_mapping["Property Location"]))
-except Exception as e:
-    print(f"Error loading CSV: {e}")
-    neighborhood_dict = {}
+# Load property locations CSV for correct neighborhood mapping
+property_locations = pd.read_csv("Property_Locations.csv")
+property_locations_dict = dict(zip(property_locations["propertyName"], property_locations["correct_neighborhood"]))
 
 def fetch_data():
     response = requests.get(APIFY_API_URL)
@@ -32,9 +26,13 @@ def search():
         property_name = item.get("propertyName", "N/A")
         address = item.get("location", {}).get("fullAddress", "N/A")
         
-        # Replace incorrect neighborhood with correct one from CSV
-        json_neighborhood = item.get("location", {}).get("neighborhood", "N/A")
-        corrected_neighborhood = neighborhood_dict.get(property_name, json_neighborhood)
+        # Use correct neighborhood if available in CSV, else fallback to JSON value
+        neighborhood = property_locations_dict.get(property_name, item.get("location", {}).get("neighborhood", "N/A"))
+        
+        # Extract coordinates
+        coordinates = item.get("coordinates", {})
+        latitude = coordinates.get("latitude", None)
+        longitude = coordinates.get("longitude", None)
 
         walk_score = item.get("scores", {}).get("walkScore", "N/A")
         transit_score = item.get("scores", {}).get("transitScore", "N/A")
@@ -78,7 +76,9 @@ def search():
                 results.append({
                     "Property Name": property_name,
                     "Address": address,
-                    "Neighborhood": corrected_neighborhood,  # 🏡 Updated neighborhood
+                    "Neighborhood": neighborhood,
+                    "Latitude": latitude,
+                    "Longitude": longitude,
                     "Rent": unit_rent,
                     "Deposit": deposit,
                     "Floorplan": floorplan_name,
