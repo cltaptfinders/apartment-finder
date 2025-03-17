@@ -21,29 +21,18 @@ except Exception as e:
     print(f"⚠️ Error loading Property_Locations.csv: {e}")
     property_locations_dict = {}
 
-# Load commission data CSV
+# Load cleaned commission data
 try:
-    commission_data = pd.read_csv("Commission Manifest.csv")
+    commission_data = pd.read_csv("Formatted_Commission_Manifest.csv")
     commission_data.columns = commission_data.columns.str.strip().str.lower()
 
     if "property name" in commission_data.columns and "commission" in commission_data.columns:
-        # Normalize commission values (keep $ amounts and % as is)
-        def format_commission(value):
-            value = str(value).strip()
-            if value.endswith("%"):
-                return value  # Keep as percentage
-            elif value.startswith("$"):
-                return value  # Keep as dollar amount
-            else:
-                return f"${value}" if value.replace(".", "", 1).isdigit() else value  # Convert to dollar format if numeric
-
-        commission_data["commission"] = commission_data["commission"].apply(format_commission)
         commission_dict = dict(zip(commission_data["property name"], commission_data["commission"]))
     else:
         print("⚠️ CSV does not contain expected columns: 'Property Name' & 'Commission'")
         commission_dict = {}
 except Exception as e:
-    print(f"⚠️ Error loading Commission Manifest.csv: {e}")
+    print(f"⚠️ Error loading Formatted_Commission_Manifest.csv: {e}")
     commission_dict = {}
 
 def fetch_data():
@@ -114,7 +103,7 @@ def search():
                     "Property Name": property_name,
                     "Address": address,
                     "Neighborhood": neighborhood,
-                    "Commission": commission,  # Fixed commission data
+                    "Commission": commission,  # Added commission data
                     "Rent": unit_rent,
                     "Deposit": deposit,
                     "Floorplan": floorplan_name,

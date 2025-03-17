@@ -159,6 +159,7 @@ if page == "Apartment Finder":
             for _, row in filtered_df.iterrows():
                 application_fee = row["Application Fee"] if "Application Fee" in row else "N/A"
                 commission = row["Commission"] if "Commission" in row else "Not Available"
+                
                 st.markdown(f"""
                 <div class='apartment-card'>
                     <h2 style="color: {PRIMARY_COLOR};">🏢 {row["Property Name"]}</h2>
