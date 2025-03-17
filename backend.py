@@ -13,7 +13,11 @@ try:
     property_locations.columns = property_locations.columns.str.strip().str.lower()
 
     if "property name" in property_locations.columns and "property location" in property_locations.columns:
-        property_locations_dict = dict(zip(property_locations["property name"], property_locations["property location"]))
+        property_locations_dict = {
+            name.strip().lower(): location for name, location in zip(
+                property_locations["property name"], property_locations["property location"]
+            )
+        }
     else:
         print("⚠️ CSV does not contain expected columns: 'Property Name' & 'Property Location'")
         property_locations_dict = {}
@@ -21,13 +25,17 @@ except Exception as e:
     print(f"⚠️ Error loading Property_Locations.csv: {e}")
     property_locations_dict = {}
 
-# Load cleaned commission data
+# Load commission data CSV
 try:
     commission_data = pd.read_csv("Formatted_Commission_Manifest.csv")
     commission_data.columns = commission_data.columns.str.strip().str.lower()
 
     if "property name" in commission_data.columns and "commission" in commission_data.columns:
-        commission_dict = dict(zip(commission_data["property name"], commission_data["commission"]))
+        commission_dict = {
+            name.strip().lower(): commission for name, commission in zip(
+                commission_data["property name"], commission_data["commission"]
+            )
+        }
     else:
         print("⚠️ CSV does not contain expected columns: 'Property Name' & 'Commission'")
         commission_dict = {}
@@ -47,7 +55,7 @@ def search():
 
     results = []
     for item in data:
-        property_name = item.get("propertyName", "N/A")
+        property_name = item.get("propertyName", "N/A").strip().lower()  # Normalize for matching
         address = item.get("location", {}).get("fullAddress", "N/A")
 
         # Replace neighborhood with correct one from CSV if available
@@ -100,10 +108,10 @@ def search():
                 availability = unit.get("availability", "Unknown")
 
                 results.append({
-                    "Property Name": property_name,
+                    "Property Name": item.get("propertyName", "N/A"),  # Original casing
                     "Address": address,
                     "Neighborhood": neighborhood,
-                    "Commission": commission,  # Added commission data
+                    "Commission": commission,  # Fixed commission matching
                     "Rent": unit_rent,
                     "Deposit": deposit,
                     "Floorplan": floorplan_name,
