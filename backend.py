@@ -27,6 +27,17 @@ try:
     commission_data.columns = commission_data.columns.str.strip().str.lower()
 
     if "property name" in commission_data.columns and "commission" in commission_data.columns:
+        # Normalize commission values (keep $ amounts and % as is)
+        def format_commission(value):
+            value = str(value).strip()
+            if value.endswith("%"):
+                return value  # Keep as percentage
+            elif value.startswith("$"):
+                return value  # Keep as dollar amount
+            else:
+                return f"${value}" if value.replace(".", "", 1).isdigit() else value  # Convert to dollar format if numeric
+
+        commission_data["commission"] = commission_data["commission"].apply(format_commission)
         commission_dict = dict(zip(commission_data["property name"], commission_data["commission"]))
     else:
         print("⚠️ CSV does not contain expected columns: 'Property Name' & 'Commission'")
@@ -103,7 +114,7 @@ def search():
                     "Property Name": property_name,
                     "Address": address,
                     "Neighborhood": neighborhood,
-                    "Commission": commission,  # Added commission data
+                    "Commission": commission,  # Fixed commission data
                     "Rent": unit_rent,
                     "Deposit": deposit,
                     "Floorplan": floorplan_name,
