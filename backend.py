@@ -10,10 +10,8 @@ APIFY_API_URL = "https://api.apify.com/v2/datasets/jTMxakh4vuvXiMo8J/items"
 # Load property locations CSV for neighborhood corrections
 try:
     property_locations = pd.read_csv("Property_Locations.csv")
-    # Normalize column names (strip spaces & lowercase)
     property_locations.columns = property_locations.columns.str.strip().str.lower()
 
-    # Ensure expected columns exist
     if "property name" in property_locations.columns and "property location" in property_locations.columns:
         property_locations_dict = dict(zip(property_locations["property name"], property_locations["property location"]))
     else:
@@ -22,6 +20,20 @@ try:
 except Exception as e:
     print(f"⚠️ Error loading Property_Locations.csv: {e}")
     property_locations_dict = {}
+
+# Load commission data CSV
+try:
+    commission_data = pd.read_csv("Commission Manifest.csv")
+    commission_data.columns = commission_data.columns.str.strip().str.lower()
+
+    if "property name" in commission_data.columns and "commission" in commission_data.columns:
+        commission_dict = dict(zip(commission_data["property name"], commission_data["commission"]))
+    else:
+        print("⚠️ CSV does not contain expected columns: 'Property Name' & 'Commission'")
+        commission_dict = {}
+except Exception as e:
+    print(f"⚠️ Error loading Commission Manifest.csv: {e}")
+    commission_dict = {}
 
 def fetch_data():
     response = requests.get(APIFY_API_URL)
@@ -40,6 +52,9 @@ def search():
 
         # Replace neighborhood with correct one from CSV if available
         neighborhood = property_locations_dict.get(property_name, item.get("location", {}).get("neighborhood", "N/A"))
+
+        # Get commission from CSV if available
+        commission = commission_dict.get(property_name, "Not Available")
 
         walk_score = item.get("scores", {}).get("walkScore", "N/A")
         transit_score = item.get("scores", {}).get("transitScore", "N/A")
@@ -88,6 +103,7 @@ def search():
                     "Property Name": property_name,
                     "Address": address,
                     "Neighborhood": neighborhood,
+                    "Commission": commission,  # Added commission data
                     "Rent": unit_rent,
                     "Deposit": deposit,
                     "Floorplan": floorplan_name,

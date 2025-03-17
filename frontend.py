@@ -165,13 +165,9 @@ if page == "Apartment Finder":
                     <p class='rent-price'>💰 Rent: ${row["Rent"]:,.0f}</p>
                     <p>📅 <b>Availability:</b> {row["Availability"]}</p>
                     <p>🛏️ <b>Bedrooms:</b> {row["Bedrooms"]} | 🛁 <b>Bathrooms:</b> {row["Bathrooms"]}</p>
-                    <p>📏 <b>Square Footage:</b> {row["Square Footage"]} sqft</p>
                     <p>🏠 <b>Floorplan:</b> {row["Floorplan"]}</p>
                     <p>🔢 <b>Unit Number:</b> {row["Unit Number"]}</p>
-                    <p>🚗 <b>Parking Fees:</b> {row["Parking Fees"]}</p>
-                    <p>🐶 <b>Pet Fees:</b> {row["Pet Fees"]}</p>
-                    <p>📝 <b>Application Fee:</b> {application_fee}</p>
-                    <p>📜 <b>Description:</b> {row["Description"]}</p>
+                    <p>💰 <b>Commission:</b> {row["Commission"]}</p>
                 </div>
                 """, unsafe_allow_html=True)
         else:
