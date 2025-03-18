@@ -8,7 +8,7 @@ from dateutil import parser
 from datetime import datetime
 
 # 🏠 Page Configuration
-st.set_page_config(page_title="CLT Apartment Finder AI", page_icon="🏠", layout="wide")
+st.set_page_config(page_title="Charlotte Apartment Finder", page_icon="🏠", layout="wide")
 
 # 📡 Backend API URL
 BACKEND_URL = "https://apartment-finder-backend.onrender.com/search"
@@ -16,9 +16,6 @@ BACKEND_URL = "https://apartment-finder-backend.onrender.com/search"
 # 📂 Define JSON Cache File & Expiry Time (24 hours)
 JSON_FILE = "data.json"
 REFRESH_INTERVAL = 86400  # 24 hours in seconds
-
-# 🏠 **LOGO CONFIGURATION**
-LOGO_PATH = "Logo Ai.png"  # Ensure the logo file is in the project folder
 
 # 🔄 Function to Fetch & Cache Data
 @st.cache_data
@@ -43,15 +40,14 @@ def fetch_data():
 df = fetch_data()
 
 # --- 🏠 Page Styling ---
+LOGO_PATH = "Logo Ai.png"  # Ensure this file is in the same directory
 PRIMARY_COLOR = "#2F80ED"
 BACKGROUND_COLOR = "#F7F9FC"
 TEXT_COLOR = "#000000"
 
-# Display Logo in Sidebar
-st.sidebar.image(LOGO_PATH, width=200)
-
+st.sidebar.image(LOGO_PATH, width=200)  # Display Logo in Sidebar
 st.sidebar.title("📌 Navigation")
-page = st.sidebar.radio("Go to", ["🏠 Apartment Search", "📍 Property Map"])
+page = st.sidebar.radio("Go to", ["Apartment Finder", "Property Map"])
 
 # --- 🎨 Custom CSS ---
 st.markdown(f"""
@@ -70,7 +66,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # --- 📍 Property Map Page ---
-if page == "📍 Property Map":
+if page == "Property Map":
     st.title("📍 Charlotte Apartment Map")
     st.markdown("### Browse all partner properties on a live interactive map.")
 
@@ -84,14 +80,7 @@ if page == "📍 Property Map":
         st.error("⚠️ Latitude and Longitude data not found!")
 
 # --- 🏠 Apartment Finder Page ---
-if page == "🏠 Apartment Search":
-    st.markdown(f"""
-        <div style='display: flex; align-items: center; justify-content: center;'>
-            <img src="{LOGO_PATH}" alt="CLT Apartment Finder AI Logo" style='max-width: 250px; margin-right: 15px;'>
-            <h1 style="color: {PRIMARY_COLOR};">CLT Apartment Finder AI</h1>
-        </div>
-    """, unsafe_allow_html=True)
-
+if page == "Apartment Finder":
     st.markdown("### Find Your Dream Apartment in Charlotte ✨")
 
     st.sidebar.header("🔍 Search Filters")
@@ -132,8 +121,12 @@ if page == "🏠 Apartment Search":
     if st.sidebar.button("🔎 Search"):
         filtered_df = df.copy()
 
-        filtered_df["Rent"] = filtered_df["Rent"].astype(str).str.replace("[$,]", "", regex=True)
-        filtered_df["Rent"] = pd.to_numeric(filtered_df["Rent"], errors="coerce").fillna(0).astype(int)
+        # Ensure Rent column exists to avoid KeyError
+        if "Rent" in filtered_df.columns:
+            filtered_df["Rent"] = filtered_df["Rent"].astype(str).str.replace("[$,]", "", regex=True)
+            filtered_df["Rent"] = pd.to_numeric(filtered_df["Rent"], errors="coerce").fillna(0).astype(int)
+        else:
+            st.error("⚠️ Error: 'Rent' column missing from data. Please check backend response.")
 
         filtered_df["Square Footage"] = pd.to_numeric(filtered_df["Square Footage"], errors="coerce")
         filtered_df["Availability"] = filtered_df["Availability"].astype(str).str.strip()
@@ -170,6 +163,10 @@ if page == "🏠 Apartment Search":
                     <h2 style="color: {PRIMARY_COLOR};">🏢 {row["Property Name"]}</h2>
                     <p>📍 <b>Address:</b> {row["Address"]} - {row["Neighborhood"]}</p>
                     <p class='rent-price'>💰 Rent: ${row["Rent"]:,.0f}</p>
+                    <p>📅 <b>Availability:</b> {row["Availability"]}</p>
+                    <p>🛏️ <b>Bedrooms:</b> {row["Bedrooms"]} | 🛁 <b>Bathrooms:</b> {row["Bathrooms"]}</p>
+                    <p>🏠 <b>Floorplan:</b> {row["Floorplan"]}</p>
+                    <p>🔢 <b>Unit Number:</b> {row["Unit Number"]}</p>
                     <p>💰 <b>Commission:</b> {commission}</p>
                 </div>
                 """, unsafe_allow_html=True)
