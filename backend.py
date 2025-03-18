@@ -1,6 +1,7 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify
 import requests
 import pandas as pd
+from fuzzywuzzy import process
 
 app = Flask(__name__)
 
@@ -14,9 +15,8 @@ try:
 
     if "property name" in property_locations.columns and "property location" in property_locations.columns:
         property_locations_dict = {
-            name.strip().lower(): location for name, location in zip(
-                property_locations["property name"], property_locations["property location"]
-            )
+            name.strip().lower(): location.strip()
+            for name, location in zip(property_locations["property name"], property_locations["property location"])
         }
     else:
         print("⚠️ CSV does not contain expected columns: 'Property Name' & 'Property Location'")
@@ -32,9 +32,8 @@ try:
 
     if "property name" in commission_data.columns and "commission" in commission_data.columns:
         commission_dict = {
-            name.strip().lower(): commission for name, commission in zip(
-                commission_data["property name"], commission_data["commission"]
-            )
+            name.strip().lower(): commission.strip()
+            for name, commission in zip(commission_data["property name"], commission_data["commission"])
         }
     else:
         print("⚠️ CSV does not contain expected columns: 'Property Name' & 'Commission'")
@@ -55,14 +54,18 @@ def search():
 
     results = []
     for item in data:
-        property_name = item.get("propertyName", "N/A").strip().lower()  # Normalize for matching
+        property_name = item.get("propertyName", "N/A").strip().lower()
         address = item.get("location", {}).get("fullAddress", "N/A")
 
         # Replace neighborhood with correct one from CSV if available
         neighborhood = property_locations_dict.get(property_name, item.get("location", {}).get("neighborhood", "N/A"))
 
-        # Get commission from CSV if available
+        # Get commission from CSV with fuzzy matching fallback
         commission = commission_dict.get(property_name, "Not Available")
+        if commission == "Not Available":
+            closest_match, score = process.extractOne(property_name, commission_dict.keys())
+            if score >= 90:  # If high confidence match, use it
+                commission = commission_dict[closest_match]
 
         walk_score = item.get("scores", {}).get("walkScore", "N/A")
         transit_score = item.get("scores", {}).get("transitScore", "N/A")
@@ -108,10 +111,10 @@ def search():
                 availability = unit.get("availability", "Unknown")
 
                 results.append({
-                    "Property Name": item.get("propertyName", "N/A"),  # Original casing
+                    "Property Name": item.get("propertyName", "N/A"),
                     "Address": address,
                     "Neighborhood": neighborhood,
-                    "Commission": commission,  # Fixed commission matching
+                    "Commission": commission,  # Fixed commission mapping
                     "Rent": unit_rent,
                     "Deposit": deposit,
                     "Floorplan": floorplan_name,
