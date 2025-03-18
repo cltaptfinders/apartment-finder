@@ -40,12 +40,12 @@ def fetch_data():
 df = fetch_data()
 
 # --- 🏠 Page Styling ---
-LOGO_URL = "https://raw.githubusercontent.com/cltaptfinders/apartment-finder/main/Logo%20Ai.png"  # Ensure this file is in the same directory
+LOGO_URL = "https://raw.githubusercontent.com/cltaptfinders/apartment-finder/main/Logo%20Ai.png"
 PRIMARY_COLOR = "#2F80ED"
 BACKGROUND_COLOR = "#F7F9FC"
 TEXT_COLOR = "#000000"
 
-st.sidebar.image(LOGO_PATH, width=200)  # Display Logo in Sidebar
+st.sidebar.image(LOGO_URL, width=200)  # Display Logo in Sidebar
 st.sidebar.title("📌 Navigation")
 page = st.sidebar.radio("Go to", ["Apartment Finder", "Property Map"])
 
@@ -121,12 +121,15 @@ if page == "Apartment Finder":
     if st.sidebar.button("🔎 Search"):
         filtered_df = df.copy()
 
-        # Ensure Rent column exists to avoid KeyError
-        if "Rent" in filtered_df.columns:
-            filtered_df["Rent"] = filtered_df["Rent"].astype(str).str.replace("[$,]", "", regex=True)
-            filtered_df["Rent"] = pd.to_numeric(filtered_df["Rent"], errors="coerce").fillna(0).astype(int)
-        else:
-            st.error("⚠️ Error: 'Rent' column missing from data. Please check backend response.")
+        # Ensure critical columns exist to avoid KeyErrors
+        required_columns = ["Rent", "Square Footage", "Availability"]
+        for col in required_columns:
+            if col not in filtered_df.columns:
+                st.error(f"⚠️ Error: '{col}' column missing from data. Please check backend response.")
+                st.stop()
+
+        filtered_df["Rent"] = filtered_df["Rent"].astype(str).str.replace("[$,]", "", regex=True)
+        filtered_df["Rent"] = pd.to_numeric(filtered_df["Rent"], errors="coerce").fillna(0).astype(int)
 
         filtered_df["Square Footage"] = pd.to_numeric(filtered_df["Square Footage"], errors="coerce")
         filtered_df["Availability"] = filtered_df["Availability"].astype(str).str.strip()
