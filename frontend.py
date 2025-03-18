@@ -40,7 +40,7 @@ def fetch_data():
 df = fetch_data()
 
 # --- 🏠 Page Styling ---
-LOGO_PATH = "Logo Ai.png"  # Ensure this file is in the same directory
+LOGO_URL = "https://raw.githubusercontent.com/cltaptfinders/apartment-finder/main/Logo%20Ai.png"  # Ensure this file is in the same directory
 PRIMARY_COLOR = "#2F80ED"
 BACKGROUND_COLOR = "#F7F9FC"
 TEXT_COLOR = "#000000"
