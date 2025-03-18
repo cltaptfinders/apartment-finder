@@ -91,6 +91,9 @@ if page == "Apartment Finder":
     bedrooms = st.sidebar.text_input("Bedrooms (Optional, e.g., Studio, 1 Bed, 2 Beds)", "")
     min_sqft = st.sidebar.number_input("Minimum Square Footage (Optional)", value=0, step=50)
 
+    # ✅ Checkbox to Show All Matching Units or Just the Lowest-Priced One Per Property
+    show_all_units = st.sidebar.checkbox("Show all matching units", value=False)
+
     # --- 🛠️ Helper Functions ---
     def parse_availability(value):
         """Convert 'now' and 'soon' to today's date, otherwise parse normally."""
@@ -122,7 +125,7 @@ if page == "Apartment Finder":
         filtered_df = df.copy()
 
         # Ensure critical columns exist to avoid KeyErrors
-        required_columns = ["Rent", "Square Footage", "Availability"]
+        required_columns = ["Property Name", "Unit Number", "Rent", "Square Footage", "Availability"]
         for col in required_columns:
             if col not in filtered_df.columns:
                 st.error(f"⚠️ Error: '{col}' column missing from data. Please check backend response.")
@@ -154,23 +157,20 @@ if page == "Apartment Finder":
         if min_sqft > 0:
             filtered_df = filtered_df[filtered_df["Square Footage"] >= min_sqft]
 
-        filtered_df = filtered_df.drop_duplicates(subset=["Property Name", "Unit Number", "Rent", "Availability"], keep="first")
+        # ✅ Keep only the lowest-priced unit per property unless checkbox is checked
+        if not show_all_units:
+            filtered_df = filtered_df.sort_values(by="Rent").drop_duplicates(subset=["Property Name"], keep="first")
 
         if not filtered_df.empty:
             for _, row in filtered_df.iterrows():
-                application_fee = row["Application Fee"] if "Application Fee" in row else "N/A"
-                commission = row["Commission"] if "Commission" in row else "Not Available"
-                
                 st.markdown(f"""
                 <div class='apartment-card'>
                     <h2 style="color: {PRIMARY_COLOR};">🏢 {row["Property Name"]}</h2>
                     <p>📍 <b>Address:</b> {row["Address"]} - {row["Neighborhood"]}</p>
                     <p class='rent-price'>💰 Rent: ${row["Rent"]:,.0f}</p>
                     <p>📅 <b>Availability:</b> {row["Availability"]}</p>
-                    <p>🛏️ <b>Bedrooms:</b> {row["Bedrooms"]} | 🛁 <b>Bathrooms:</b> {row["Bathrooms"]}</p>
                     <p>🏠 <b>Floorplan:</b> {row["Floorplan"]}</p>
                     <p>🔢 <b>Unit Number:</b> {row["Unit Number"]}</p>
-                    <p>💰 <b>Commission:</b> {commission}</p>
                 </div>
                 """, unsafe_allow_html=True)
         else:
