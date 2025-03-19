@@ -15,27 +15,23 @@ st.set_page_config(page_title="Charlotte Apartment Finder", page_icon="🏠", la
 # 📡 Firebase Authentication Setup
 import json
 
-firebase_key = os.getenv("FIREBASE_KEY")  # Retrieve Firebase Key from Environment Variable
+firebase_key = os.getenv("FIREBASE_KEY")
 
-if firebase_key:
-    try:
-        # Print the first 100 characters for debugging
-        print(f"Firebase Key (Partial): {firebase_key[:100]}")
-        
-        firebase_key_dict = json.loads(firebase_key)  # Convert JSON string back to dictionary
-
-        if not firebase_admin._apps:  # Prevent duplicate initialization
-            cred = credentials.Certificate(firebase_key_dict)
-            firebase_admin.initialize_app(cred)
+try:
+    firebase_key_fixed = firebase_key.replace("\\n", "\n")  # Convert \\n to newlines
+    firebase_key_dict = json.loads(firebase_key_fixed)  # Convert JSON string back to dictionary
     
-    except json.JSONDecodeError as e:
-        st.error(f"⚠️ Invalid Firebase key format: {e}")
-        st.stop()
-    except Exception as e:
-        st.error(f"⚠️ Firebase initialization failed: {e}")
-        st.stop()
-else:
-    st.error("⚠️ Firebase key is missing. Check environment variables in Render.")
+    if not firebase_admin._apps:
+        cred = credentials.Certificate(firebase_key_dict)  # Load credentials
+        firebase_admin.initialize_app(cred)
+
+    print("✅ Firebase successfully initialized!")
+except json.JSONDecodeError:
+    st.error("⚠️ Invalid Firebase key format. Check environment variable formatting.")
+    st.stop()
+except Exception as e:
+    st.error(f"⚠️ Firebase initialization failed: {e}")
+    st.stop()
 
 # 🔑 Firebase Web API Key (Replace with your actual Firebase Web API Key)
 FIREBASE_WEB_API_KEY = "AIzaSyAdWQkhvXlzK4wRy7JxCbWkOGIC3Wkts38"
