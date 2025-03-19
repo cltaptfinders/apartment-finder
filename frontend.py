@@ -4,13 +4,71 @@ import requests
 import json
 import os
 import time
+import firebase_admin
+from firebase_admin import auth, credentials
 from dateutil import parser
 from datetime import datetime
 
 # 🏠 Page Configuration
 st.set_page_config(page_title="Charlotte Apartment Finder", page_icon="🏠", layout="wide")
 
-# 📡 Backend API URL
+# 📡 Firebase Authentication Setup
+if not firebase_admin._apps:
+    cred = credentials.Certificate("firebase-key.json")  # Ensure this file is in your directory
+    firebase_admin.initialize_app(cred)
+
+# 🏠 Function to Authenticate Users
+def authenticate_user(email, password):
+    try:
+        user = auth.get_user_by_email(email)
+        return user
+    except:
+        return None
+
+# 🔑 User Session Management
+if "user" not in st.session_state:
+    st.session_state.user = None
+if "role" not in st.session_state:
+    st.session_state.role = None
+
+# 🔑 Login Page
+def login_page():
+    st.title("🔐 Login to Apartment Finders AI")
+    st.sidebar.image("Logo Ai.png", width=200)  # Display Logo in Sidebar
+
+    email = st.text_input("📧 Email", key="email")
+    password = st.text_input("🔑 Password", type="password", key="password")
+
+    if st.button("Login"):
+        user = authenticate_user(email, password)
+        if user:
+            # Get user role from Firebase custom claims
+            user_role = auth.get_user(user.uid).custom_claims.get("role", "agent")
+            st.session_state.user = user
+            st.session_state.role = user_role
+
+            st.success(f"✅ Successfully logged in as {user_role.capitalize()}!")
+            st.experimental_rerun()
+        else:
+            st.error("❌ Invalid email or password. Please try again.")
+
+# 🔓 Logout Button
+if st.session_state.user:
+    if st.sidebar.button("Logout"):
+        st.session_state.user = None
+        st.session_state.role = None
+        st.experimental_rerun()
+
+# ✅ If Not Logged In, Show Login Page
+if not st.session_state.user:
+    login_page()
+    st.stop()
+
+# ✅ If Logged In, Proceed with the App
+st.sidebar.title("📌 Navigation")
+page = st.sidebar.radio("Go to", ["Apartment Finder", "Property Map"])
+
+# --- 📡 Backend API URL ---
 BACKEND_URL = "https://apartment-finder-backend.onrender.com/search"
 
 # 📂 Define JSON Cache File & Expiry Time (24 hours)
@@ -20,7 +78,6 @@ REFRESH_INTERVAL = 86400  # 24 hours in seconds
 # 🔄 Function to Fetch & Cache Data
 @st.cache_data
 def fetch_data():
-    """Fetch data from API and save to JSON file, refreshing once per day."""
     if os.path.exists(JSON_FILE):
         file_mod_time = os.path.getmtime(JSON_FILE)
         if time.time() - file_mod_time < REFRESH_INTERVAL:
@@ -45,32 +102,11 @@ PRIMARY_COLOR = "#2F80ED"
 BACKGROUND_COLOR = "#F7F9FC"
 TEXT_COLOR = "#000000"
 
-st.sidebar.image(LOGO_URL, width=200)  # Display Logo in Sidebar
-st.sidebar.title("📌 Navigation")
-page = st.sidebar.radio("Go to", ["Apartment Finder", "Property Map"])
-
-# --- 🎨 Custom CSS ---
-st.markdown(f"""
-    <style>
-        .stApp {{ background-color: {BACKGROUND_COLOR}; }}
-        .apartment-card {{
-            background-color: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-            color: {TEXT_COLOR};
-        }}
-        .rent-price {{ font-size: 22px; font-weight: bold; color: {PRIMARY_COLOR}; }}
-    </style>
-""", unsafe_allow_html=True)
-
 # --- 📍 Property Map Page ---
 if page == "Property Map":
     st.title("📍 Charlotte Apartment Map")
     st.markdown("### Browse all partner properties on a live interactive map.")
-
-    # Ensure Latitude & Longitude are properly formatted
+    
     df_map = df.copy()
     df_map.rename(columns={"Latitude": "lat", "Longitude": "lon"}, inplace=True)
 
@@ -94,37 +130,10 @@ if page == "Apartment Finder":
     # ✅ Checkbox to Show All Matching Units or Just the Lowest-Priced One Per Property
     show_all_units = st.sidebar.checkbox("Show all matching units", value=False)
 
-    # --- 🛠️ Helper Functions ---
-    def parse_availability(value):
-        """Convert 'now' and 'soon' to today's date, otherwise parse normally."""
-        value = str(value).strip()
-        today = datetime.today().date()
-        if value.lower() in ["now", "soon"]:
-            return today  
-        try:
-            return parser.parse(value, fuzzy=True).date()
-        except:
-            return None  
-
-    def format_fees(fees_list):
-        """Formats parking & pet fees into readable text"""
-        if not isinstance(fees_list, list) or not fees_list:
-            return "Not specified"
-        extracted_fees = []
-        for category in fees_list:
-            if isinstance(category, dict) and "fees" in category:
-                for fee in category["fees"]:
-                    key = fee.get("key", "").strip()
-                    value = fee.get("value", "").strip()
-                    if key and value and value != "--":
-                        extracted_fees.append(f"{key}: {value}")
-        return ", ".join(extracted_fees) if extracted_fees else "Not specified"
-
     # 🏡 Filter & Display Results
     if st.sidebar.button("🔎 Search"):
         filtered_df = df.copy()
 
-        # Ensure critical columns exist to avoid KeyErrors
         required_columns = ["Property Name", "Unit Number", "Rent", "Square Footage", "Availability"]
         for col in required_columns:
             if col not in filtered_df.columns:
@@ -157,7 +166,6 @@ if page == "Apartment Finder":
         if min_sqft > 0:
             filtered_df = filtered_df[filtered_df["Square Footage"] >= min_sqft]
 
-        # ✅ Keep only the lowest-priced unit per property unless checkbox is checked
         if not show_all_units:
             filtered_df = filtered_df.sort_values(by="Rent").drop_duplicates(subset=["Property Name"], keep="first")
 
