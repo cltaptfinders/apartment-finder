@@ -4,6 +4,7 @@ import requests
 import json
 import os
 import time
+import base64
 import firebase_admin
 from firebase_admin import auth, credentials
 from dateutil import parser
@@ -12,25 +13,24 @@ from datetime import datetime
 # 🏠 Page Configuration
 st.set_page_config(page_title="Charlotte Apartment Finder", page_icon="🏠", layout="wide")
 
-# 📡 Firebase Authentication Setup
-import json
+# 📡 Firebase Authentication Setup (Using Base64 Encoding)
+firebase_key_b64 = os.getenv("FIREBASE_KEY_B64")  # Retrieve Base64-encoded key
 
-firebase_key = os.getenv("FIREBASE_KEY")
+if firebase_key_b64:
+    try:
+        firebase_key_json = base64.b64decode(firebase_key_b64).decode("utf-8")  # Decode to JSON string
+        firebase_key_dict = json.loads(firebase_key_json)  # Convert JSON string to dictionary
 
-try:
-    firebase_key_fixed = firebase_key.replace("\\n", "\n")  # Convert \\n to newlines
-    firebase_key_dict = json.loads(firebase_key_fixed)  # Convert JSON string back to dictionary
-    
-    if not firebase_admin._apps:
-        cred = credentials.Certificate(firebase_key_dict)  # Load credentials
-        firebase_admin.initialize_app(cred)
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(firebase_key_dict)  # Load credentials
+            firebase_admin.initialize_app(cred)
 
-    print("✅ Firebase successfully initialized!")
-except json.JSONDecodeError:
-    st.error("⚠️ Invalid Firebase key format. Check environment variable formatting.")
-    st.stop()
-except Exception as e:
-    st.error(f"⚠️ Firebase initialization failed: {e}")
+        print("✅ Firebase successfully initialized!")
+    except Exception as e:
+        st.error(f"⚠️ Firebase initialization failed: {e}")
+        st.stop()
+else:
+    st.error("⚠️ FIREBASE_KEY_B64 is missing in environment variables.")
     st.stop()
 
 # 🔑 Firebase Web API Key (Replace with your actual Firebase Web API Key)
