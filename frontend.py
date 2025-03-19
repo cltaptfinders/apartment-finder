@@ -18,9 +18,13 @@ import json
 firebase_key = os.getenv("FIREBASE_KEY")  # Retrieve Firebase Key from Environment Variable
 
 if firebase_key:
-    firebase_key_dict = json.loads(firebase_key)  # Convert JSON string back to dictionary
-    cred = credentials.Certificate(firebase_key_dict)  # Load credentials
-    firebase_admin.initialize_app(cred)
+    try:
+        firebase_key_dict = json.loads(firebase_key.replace("\\n", "\n"))  # Ensure proper newlines
+        cred = credentials.Certificate(firebase_key_dict)  # Load credentials
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred)
+    except Exception as e:
+        st.error(f"⚠️ Error loading Firebase credentials: {e}")
 else:
     st.error("⚠️ Firebase key is missing. Check environment variables in Render.")
 
