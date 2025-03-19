@@ -17,13 +17,20 @@ if not firebase_admin._apps:
     cred = credentials.Certificate("firebase-key.json")  # Ensure this file is in your directory
     firebase_admin.initialize_app(cred)
 
-# 🏠 Function to Authenticate Users
+# 🔑 Firebase Web API Key (Replace with your actual Firebase Web API Key)
+FIREBASE_WEB_API_KEY = "AIzaSyAdWQkhvXlzK4wRy7JxCbWkOGIC3Wkts38"
+
+# 🏠 Function to Authenticate Users via Firebase REST API
 def authenticate_user(email, password):
-    try:
-        user = auth.get_user_by_email(email)
-        return user
-    except:
-        return None
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_API_KEY}"
+    payload = {"email": email, "password": password, "returnSecureToken": True}
+    response = requests.post(url, json=payload)
+    data = response.json()
+
+    if "idToken" in data:
+        return data  # Successfully authenticated
+    else:
+        return None  # Invalid credentials
 
 # 🔑 User Session Management
 if "user" not in st.session_state:
@@ -40,15 +47,17 @@ def login_page():
     password = st.text_input("🔑 Password", type="password", key="password")
 
     if st.button("Login"):
-        user = authenticate_user(email, password)
-        if user:
+        user_data = authenticate_user(email, password)
+        if user_data:
             # Get user role from Firebase custom claims
-            user_role = auth.get_user(user.uid).custom_claims.get("role", "agent")
-            st.session_state.user = user
+            firebase_user = auth.get_user_by_email(email)
+            user_role = firebase_user.custom_claims.get("role", "agent")
+
+            st.session_state.user = user_data  # Store user session data
             st.session_state.role = user_role
 
             st.success(f"✅ Successfully logged in as {user_role.capitalize()}!")
-            st.experimental_rerun()
+            st.rerun()  # ✅ Fixed rerun function
         else:
             st.error("❌ Invalid email or password. Please try again.")
 
@@ -57,7 +66,7 @@ if st.session_state.user:
     if st.sidebar.button("Logout"):
         st.session_state.user = None
         st.session_state.role = None
-        st.experimental_rerun()
+        st.rerun()  # ✅ Fixed rerun function
 
 # ✅ If Not Logged In, Show Login Page
 if not st.session_state.user:
@@ -78,6 +87,7 @@ REFRESH_INTERVAL = 86400  # 24 hours in seconds
 # 🔄 Function to Fetch & Cache Data
 @st.cache_data
 def fetch_data():
+    """Fetch data from API and save to JSON file, refreshing once per day."""
     if os.path.exists(JSON_FILE):
         file_mod_time = os.path.getmtime(JSON_FILE)
         if time.time() - file_mod_time < REFRESH_INTERVAL:
@@ -101,6 +111,9 @@ LOGO_URL = "https://raw.githubusercontent.com/cltaptfinders/apartment-finder/mai
 PRIMARY_COLOR = "#2F80ED"
 BACKGROUND_COLOR = "#F7F9FC"
 TEXT_COLOR = "#000000"
+
+st.sidebar.image(LOGO_URL, width=200)  # Display Logo in Sidebar
+st.sidebar.title("📌 Navigation")
 
 # --- 📍 Property Map Page ---
 if page == "Property Map":
@@ -130,10 +143,37 @@ if page == "Apartment Finder":
     # ✅ Checkbox to Show All Matching Units or Just the Lowest-Priced One Per Property
     show_all_units = st.sidebar.checkbox("Show all matching units", value=False)
 
+    # --- 🛠️ Helper Functions ---
+    def parse_availability(value):
+        """Convert 'now' and 'soon' to today's date, otherwise parse normally."""
+        value = str(value).strip()
+        today = datetime.today().date()
+        if value.lower() in ["now", "soon"]:
+            return today  
+        try:
+            return parser.parse(value, fuzzy=True).date()
+        except:
+            return None  
+
+    def format_fees(fees_list):
+        """Formats parking & pet fees into readable text"""
+        if not isinstance(fees_list, list) or not fees_list:
+            return "Not specified"
+        extracted_fees = []
+        for category in fees_list:
+            if isinstance(category, dict) and "fees" in category:
+                for fee in category["fees"]:
+                    key = fee.get("key", "").strip()
+                    value = fee.get("value", "").strip()
+                    if key and value and value != "--":
+                        extracted_fees.append(f"{key}: {value}")
+        return ", ".join(extracted_fees) if extracted_fees else "Not specified"
+
     # 🏡 Filter & Display Results
     if st.sidebar.button("🔎 Search"):
         filtered_df = df.copy()
 
+        # Ensure critical columns exist to avoid KeyErrors
         required_columns = ["Property Name", "Unit Number", "Rent", "Square Footage", "Availability"]
         for col in required_columns:
             if col not in filtered_df.columns:
@@ -166,6 +206,7 @@ if page == "Apartment Finder":
         if min_sqft > 0:
             filtered_df = filtered_df[filtered_df["Square Footage"] >= min_sqft]
 
+        # ✅ Keep only the lowest-priced unit per property unless checkbox is checked
         if not show_all_units:
             filtered_df = filtered_df.sort_values(by="Rent").drop_duplicates(subset=["Property Name"], keep="first")
 
