@@ -13,9 +13,16 @@ from datetime import datetime
 st.set_page_config(page_title="Charlotte Apartment Finder", page_icon="🏠", layout="wide")
 
 # 📡 Firebase Authentication Setup
-if not firebase_admin._apps:
-    cred = credentials.Certificate("firebase-key.json")  # Ensure this file is in your directory
+import json
+
+firebase_key = os.getenv("FIREBASE_KEY")  # Retrieve Firebase Key from Environment Variable
+
+if firebase_key:
+    firebase_key_dict = json.loads(firebase_key)  # Convert JSON string back to dictionary
+    cred = credentials.Certificate(firebase_key_dict)  # Load credentials
     firebase_admin.initialize_app(cred)
+else:
+    st.error("⚠️ Firebase key is missing. Check environment variables in Render.")
 
 # 🔑 Firebase Web API Key (Replace with your actual Firebase Web API Key)
 FIREBASE_WEB_API_KEY = "AIzaSyAdWQkhvXlzK4wRy7JxCbWkOGIC3Wkts38"
