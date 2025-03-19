@@ -19,12 +19,17 @@ firebase_key = os.getenv("FIREBASE_KEY")  # Retrieve Firebase Key from Environme
 
 if firebase_key:
     try:
-        firebase_key_dict = json.loads(firebase_key.replace("\\n", "\n"))  # Ensure proper newlines
+        # Print the first 100 characters for debugging
+        print(f"Firebase Key (Partial): {firebase_key[:100]}")
+        
+        firebase_key_dict = json.loads(firebase_key)  # Convert JSON string back to dictionary
+
         if not firebase_admin._apps:  # Prevent duplicate initialization
             cred = credentials.Certificate(firebase_key_dict)
             firebase_admin.initialize_app(cred)
-    except json.JSONDecodeError:
-        st.error("⚠️ Invalid Firebase key format. Check environment variable formatting.")
+    
+    except json.JSONDecodeError as e:
+        st.error(f"⚠️ Invalid Firebase key format: {e}")
         st.stop()
     except Exception as e:
         st.error(f"⚠️ Firebase initialization failed: {e}")
